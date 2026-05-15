@@ -49,8 +49,32 @@ public static extern void keybd_event(byte vk, byte scan, uint flags, uint extra
 }
 
 try {
-    # Pause les autres medias avant d'afficher notre video
-    script:Pause-OtherMedia
+    # Pause les autres medias EN PARALLELE (job background) pour ne pas retarder l'affichage
+    $pauseJob = $null
+    try {
+        $pauseJob = Start-Job -ScriptBlock {
+            try {
+                $null = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime]
+                $asTaskGen = ([System.WindowsRuntimeSystemExtensions].GetMethods() |
+                    Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+                $await = {
+                    param($op, $resultType)
+                    $task = $asTaskGen.MakeGenericMethod($resultType).Invoke($null, @($op))
+                    $task.Wait(2000) | Out-Null
+                    return $task.Result
+                }
+                $mgr = & $await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+                if ($null -ne $mgr) {
+                    foreach ($s in $mgr.GetSessions()) {
+                        try { if ($s.GetPlaybackInfo().PlaybackStatus -eq 'Playing') { $null = & $await ($s.TryPauseAsync()) ([bool]) } } catch {}
+                    }
+                }
+            } catch {}
+        }
+    } catch {
+        # Fallback synchrone si Start-Job indispo
+        script:Pause-OtherMedia
+    }
 
     Add-Type -AssemblyName PresentationFramework
     Add-Type -AssemblyName PresentationCore
@@ -130,6 +154,7 @@ try {
     $script:App.Run() | Out-Null
 }
 finally {
+    try { if ($pauseJob) { Remove-Job -Job $pauseJob -Force -ErrorAction SilentlyContinue } } catch {}
     try { $mutex.ReleaseMutex() } catch {}
     try { $mutex.Dispose() } catch {}
 }

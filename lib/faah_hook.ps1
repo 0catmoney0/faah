@@ -154,7 +154,29 @@ function global:Invoke-Faah {
     } catch {}
 }
 
-# Un seul hook : le prompt. Couvre tous les cas d'erreur shell.
+# Hook PSReadLine : intercepte la touche Entree pour declencher AVANT que PS traite l'erreur.
+# Gain : ~300ms de moins qu'attendre le prompt suivant. PSReadLine est inclus dans PS 5.1+.
+if (Get-Module -ListAvailable PSReadLine -ErrorAction SilentlyContinue) {
+    try {
+        Import-Module PSReadLine -ErrorAction SilentlyContinue
+        Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
+            $line = ''
+            $cursor = 0
+            [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
+            $trim = $line.TrimStart()
+            if ($trim) {
+                $firstWord = ($trim -split '[\s|;&(]+', 2)[0]
+                # Ignore les lignes vides ou les commandes valides
+                if ($firstWord -and -not (Get-Command $firstWord -ErrorAction SilentlyContinue)) {
+                    try { Invoke-Faah } catch {}
+                }
+            }
+            [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+        }
+    } catch {}
+}
+
+# Fallback : hook via prompt (si PSReadLine indispo ou si l'erreur n'est pas CommandNotFound)
 function global:prompt {
     if ($Error.Count -gt 0) {
         $err = $Error[0]
