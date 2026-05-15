@@ -13,13 +13,22 @@ elif ! flock -n 200; then
     exit 0
 fi
 
-# Cherche la video
-shopt -s nullglob 2>/dev/null || true
-VIDEOS=("$FAAH_DIR/media/"video.*)
-if [[ ${#VIDEOS[@]} -eq 0 || ! -f "${VIDEOS[0]}" ]]; then
-    exit 0
+# Selectionne la video : d'abord celle indiquee par ~/.faah/active, sinon la 1ere trouvee
+VIDEO=""
+ACTIVE_FILE="$FAAH_DIR/active"
+if [[ -f "$ACTIVE_FILE" ]]; then
+    active_name=$(cat "$ACTIVE_FILE" 2>/dev/null | tr -d '\r\n')
+    if [[ -n "$active_name" && -f "$FAAH_DIR/media/$active_name" ]]; then
+        VIDEO="$FAAH_DIR/media/$active_name"
+    fi
 fi
-VIDEO="${VIDEOS[0]}"
+if [[ -z "$VIDEO" ]]; then
+    shopt -s nullglob 2>/dev/null || true
+    for f in "$FAAH_DIR/media/"*.mp4 "$FAAH_DIR/media/"*.mkv "$FAAH_DIR/media/"*.webm "$FAAH_DIR/media/"*.mov "$FAAH_DIR/media/"*.avi; do
+        [[ -f "$f" ]] && VIDEO="$f" && break
+    done
+fi
+[[ -z "$VIDEO" || ! -f "$VIDEO" ]] && exit 0
 
 # ffplay obligatoire
 if ! command -v ffplay >/dev/null 2>&1; then
