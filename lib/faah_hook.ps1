@@ -19,6 +19,12 @@ function script:Test-FaahInstanceRunning {
     } catch { return $false }
 }
 
+# Commande manuelle : `faah` declenche la video tout de suite (bypass cooldown)
+function global:faah {
+    $script:FaahLastTriggerUtc = [DateTime]::MinValue
+    Invoke-Faah
+}
+
 function global:Invoke-Faah {
     $elapsedMs = ([DateTime]::UtcNow - $script:FaahLastTriggerUtc).TotalMilliseconds
     if ($elapsedMs -lt $script:FaahCooldownMs) { return }

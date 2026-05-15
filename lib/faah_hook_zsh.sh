@@ -24,3 +24,9 @@ command_not_found_handler() {
     _faah_trigger
     return 127
 }
+
+# Commande manuelle : `faah` declenche la video tout de suite (bypass cooldown)
+faah() {
+    rm -f "$_FAAH_COOLDOWN_FILE" 2>/dev/null
+    _faah_trigger
+}
