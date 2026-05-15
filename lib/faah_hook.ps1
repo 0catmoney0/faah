@@ -19,10 +19,21 @@ function script:Test-FaahInstanceRunning {
     } catch { return $false }
 }
 
-# Commande manuelle : `faah` declenche la video tout de suite (bypass cooldown)
+# Commande `faah` : affiche ou mettre ta video
 function global:faah {
-    $script:FaahLastTriggerUtc = [DateTime]::MinValue
-    Invoke-Faah
+    $dir = $script:FaahMediaDir
+    Write-Host ""
+    Write-Host "Pose ton fichier video ici :"
+    Write-Host "    $dir\video.mp4"
+    Write-Host ""
+    Write-Host "(extension libre : .mp4 .mkv .webm... le son doit etre dans la video)"
+    $existing = Get-ChildItem -Path $dir -Filter 'video.*' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($existing) {
+        Write-Host "Video actuelle : $($existing.FullName)"
+    } else {
+        Write-Host "Aucune video posee pour le moment."
+    }
+    Write-Host ""
 }
 
 function global:Invoke-Faah {

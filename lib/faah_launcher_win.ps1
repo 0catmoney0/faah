@@ -8,7 +8,50 @@ $createdNew = $false
 $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
 if (-not $createdNew) { exit 0 }
 
+function script:Pause-OtherMedia {
+    # Met en pause toutes les sessions media en cours (Spotify, YouTube, etc.) via WinRT.
+    # Windows 10+ requis. Silencieux en cas d'echec.
+    try {
+        $null = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime]
+        $null = [Windows.Foundation.IAsyncOperation`1, Windows.Foundation, ContentType=WindowsRuntime]
+
+        $asTaskGen = ([System.WindowsRuntimeSystemExtensions].GetMethods() |
+            Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+
+        $await = {
+            param($op, $resultType)
+            $task = $asTaskGen.MakeGenericMethod($resultType).Invoke($null, @($op))
+            $task.Wait(2000) | Out-Null
+            return $task.Result
+        }
+
+        $mgr = & $await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+        if ($null -ne $mgr) {
+            foreach ($s in $mgr.GetSessions()) {
+                try {
+                    if ($s.GetPlaybackInfo().PlaybackStatus -eq 'Playing') {
+                        $null = & $await ($s.TryPauseAsync()) ([bool])
+                    }
+                } catch {}
+            }
+        }
+    } catch {
+        # Fallback : touche media play/pause (toggle, moins precis)
+        try {
+            Add-Type -Name FaahKbd -Namespace WinAPI -MemberDefinition @"
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern void keybd_event(byte vk, byte scan, uint flags, uint extra);
+"@ -ErrorAction SilentlyContinue
+            [WinAPI.FaahKbd]::keybd_event(0xB3, 0, 0, 0)
+            [WinAPI.FaahKbd]::keybd_event(0xB3, 0, 2, 0)
+        } catch {}
+    }
+}
+
 try {
+    # Pause les autres medias avant d'afficher notre video
+    script:Pause-OtherMedia
+
     Add-Type -AssemblyName PresentationFramework
     Add-Type -AssemblyName PresentationCore
     Add-Type -AssemblyName WindowsBase

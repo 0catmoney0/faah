@@ -26,8 +26,20 @@ command_not_found_handle() {
     return 127
 }
 
-# Commande manuelle : `faah` declenche la video tout de suite (bypass cooldown)
+# Commande `faah` : affiche ou mettre ta video
 faah() {
-    rm -f "$_FAAH_COOLDOWN_FILE" 2>/dev/null
-    _faah_trigger
+    local dir="${FAAH_DIR:-$HOME/.faah}/media"
+    printf '\n'
+    printf 'Pose ton fichier video ici :\n'
+    printf '    %s/video.mp4\n' "$dir"
+    printf '\n'
+    printf '(extension libre : .mp4 .mkv .webm... le son doit etre dans la video)\n'
+    local existing
+    existing=$(ls "$dir"/video.* 2>/dev/null | head -n 1)
+    if [[ -n "$existing" ]]; then
+        printf 'Video actuelle : %s\n' "$existing"
+    else
+        printf 'Aucune video posee pour le moment.\n'
+    fi
+    printf '\n'
 }

@@ -20,13 +20,14 @@ Dépendance Mac/Linux : `ffmpeg`. L'installeur indique la commande adaptée (`br
 
 ## Utilisation
 
-1. Pose ta vidéo dans `~/.faah/media/video.mp4` (extension libre : `.mp4`, `.mkv`, `.webm`...).
-2. Ouvre un nouveau terminal (ou recharge ton shell).
-3. **Auto** : tape une commande inconnue → la vidéo joue.
-4. **Manuel** : tape juste `faah` → la vidéo joue tout de suite (sans cooldown).
+1. Tape **`faah`** dans ton terminal → il te dit exactement où poser ta vidéo.
+2. Pose ta vidéo dans `~/.faah/media/video.mp4` (extension libre : `.mp4`, `.mkv`, `.webm`...). Le son doit être inclus dans la vidéo.
+3. Ouvre un nouveau terminal (ou recharge ton shell).
+4. Tape une commande inconnue → la vidéo joue en plein écran.
 
 ## Comportement
 
+- **Pause auto des autres médias** : Spotify, YouTube, VLC etc. sont mis en pause avant que la vidéo joue (Windows 10+, macOS, Linux avec `playerctl`).
 - **Cooldown 10s** entre deux déclenchements auto (pas de spam).
 - **Single instance** : si une vidéo joue déjà, la suivante est ignorée.
 - **Multi-écran (Windows uniquement)** : la vidéo s'affiche sur tous les moniteurs.
