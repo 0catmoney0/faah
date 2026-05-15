@@ -92,7 +92,7 @@ sudo apt install playerctl
 - 🎵 **Pause automatique des autres médias** avant de jouer (Spotify, YouTube, VLC, Apple Music...). Évite le mélange de sons.
 - ⏱️ **Cooldown 10 secondes** : si tu spammes des commandes invalides, la vidéo ne se relance pas avant 10s.
 - 🔒 **Une seule instance** : pas de superposition de vidéos.
-- 🖥️ **Multi-écran (Windows uniquement)** : la vidéo s'affiche sur tous les moniteurs en même temps.
+- 🖥️ **Multi-écran (tous OS)** : la vidéo s'affiche sur tous les moniteurs en même temps. Sur Linux Wayland ou si la détection échoue, fallback automatique sur un seul écran. Pour désactiver : `export FAAH_NO_MULTI_SCREEN=1`.
 - 🚪 **Touche Échap** : ferme la fenêtre en urgence.
 
 ---

@@ -39,11 +39,28 @@ if ($current -and $current.Contains($marker)) {
     Write-Host "[+] Hook ajoute a $ProfilePath"
 }
 
-# Verifie ExecutionPolicy
-$ep = Get-ExecutionPolicy -Scope CurrentUser
-if ($ep -eq 'Restricted' -or $ep -eq 'AllSigned') {
-    Write-Host "[!] ExecutionPolicy actuelle ($ep) bloque le profil. Recommande :"
-    Write-Host "    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
+# Verifie/repare l'ExecutionPolicy : sans RemoteSigned (ou plus permissif) le profil ne se charge pas
+$effective = Get-ExecutionPolicy
+$cu = Get-ExecutionPolicy -Scope CurrentUser
+$blocking = @('Restricted', 'AllSigned', 'Undefined')
+if ($effective -in $blocking) {
+    Write-Host ""
+    Write-Host "[!] ExecutionPolicy actuelle ($effective) bloque le chargement du profil PowerShell."
+    Write-Host "    Sans correctif, FAAH ne marchera pas au prochain demarrage de PowerShell."
+    Write-Host ""
+    $ans = Read-Host "Activer 'RemoteSigned' au scope CurrentUser maintenant ? [O/n]"
+    if ([string]::IsNullOrWhiteSpace($ans) -or $ans -match '^(o|y|oui|yes)$') {
+        try {
+            Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+            Write-Host "[+] ExecutionPolicy CurrentUser passee a RemoteSigned."
+        } catch {
+            Write-Host "[!] Echec : $($_.Exception.Message)"
+            Write-Host "    Lance manuellement : Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
+        }
+    } else {
+        Write-Host "[!] OK, mais tu devras lancer toi-meme :"
+        Write-Host "    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
+    }
 }
 
 Write-Host ""

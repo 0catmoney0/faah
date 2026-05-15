@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
-# Joue la video FAAH en plein ecran via ffplay (single instance + cooldown geres par le hook)
+# Joue la video FAAH en plein ecran sur TOUS les ecrans detectes
 set -u
 
 FAAH_DIR="${FAAH_DIR:-$HOME/.faah}"
 LOCKFILE="/tmp/faah_$(id -u 2>/dev/null || echo me).lock"
 
-# Single instance (flock)
+# Single instance via flock (si dispo)
 exec 200>"$LOCKFILE"
-if ! command -v flock >/dev/null 2>&1; then
-    : # pas de flock dispo (mac) -> on continue, le cooldown cote hook protege
-elif ! flock -n 200; then
-    exit 0
+if command -v flock >/dev/null 2>&1; then
+    flock -n 200 || exit 0
 fi
 
-# Selectionne la video : d'abord celle indiquee par ~/.faah/active, sinon la 1ere trouvee
+# Selection de la video active : 1) fichier 'active' valide, 2) 1ere video trouvee
 VIDEO=""
 ACTIVE_FILE="$FAAH_DIR/active"
 if [[ -f "$ACTIVE_FILE" ]]; then
-    active_name=$(cat "$ACTIVE_FILE" 2>/dev/null | tr -d '\r\n')
+    active_name=$(tr -d '\r\n' < "$ACTIVE_FILE" 2>/dev/null)
     if [[ -n "$active_name" && -f "$FAAH_DIR/media/$active_name" ]]; then
         VIDEO="$FAAH_DIR/media/$active_name"
     fi
@@ -31,17 +29,13 @@ fi
 [[ -z "$VIDEO" || ! -f "$VIDEO" ]] && exit 0
 
 # ffplay obligatoire
-if ! command -v ffplay >/dev/null 2>&1; then
-    exit 0
-fi
+command -v ffplay >/dev/null 2>&1 || exit 0
 
-# Met en pause les autres medias (Spotify, YouTube, etc.) avant de jouer
+# Pause les autres medias (Spotify, YouTube, VLC...) avant de jouer
 pause_other_media() {
-    # Linux : playerctl pause tout ce qui supporte MPRIS (Spotify, Firefox, Chrome, VLC, mpv...)
     if command -v playerctl >/dev/null 2>&1; then
         playerctl pause >/dev/null 2>&1 || true
     fi
-    # macOS : pause les apps connues si elles tournent
     if command -v osascript >/dev/null 2>&1; then
         osascript -e 'tell application "Spotify" to if it is running then pause' >/dev/null 2>&1 || true
         osascript -e 'tell application "Music" to if it is running then pause'   >/dev/null 2>&1 || true
@@ -50,5 +44,70 @@ pause_other_media() {
 }
 pause_other_media
 
-# Plein ecran, son de la video, ferme a la fin, silencieux
-ffplay -fs -autoexit -loglevel quiet -window_title "FAAH" "$VIDEO" </dev/null >/dev/null 2>&1
+# Detection des ecrans : retourne lignes "X Y WIDTH HEIGHT"
+detect_screens() {
+    # Override : si FAAH_NO_MULTI_SCREEN est defini, on saute la detection
+    [[ -n "${FAAH_NO_MULTI_SCREEN:-}" ]] && return
+
+    local os
+    os="$(uname)"
+
+    # Linux X11 : xrandr donne positions et tailles absolues
+    if [[ "$os" == "Linux" ]] && command -v xrandr >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+        xrandr --listmonitors 2>/dev/null | tail -n +2 | while IFS= read -r line; do
+            if [[ "$line" =~ ([0-9]+)/[0-9]+x([0-9]+)/[0-9]+\+([0-9]+)\+([0-9]+) ]]; then
+                printf '%s %s %s %s\n' "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+            fi
+        done
+        return
+    fi
+
+    # macOS : system_profiler donne les resolutions. On suppose un alignement horizontal.
+    if [[ "$os" == "Darwin" ]] && command -v system_profiler >/dev/null 2>&1; then
+        local x_off=0 w h line
+        while IFS= read -r line; do
+            if [[ "$line" =~ Resolution:.*\ ([0-9]+)\ x\ ([0-9]+) ]]; then
+                w="${BASH_REMATCH[1]}"
+                h="${BASH_REMATCH[2]}"
+                printf '%d %d %d %d\n' "$x_off" 0 "$w" "$h"
+                x_off=$((x_off + w))
+            fi
+        done < <(system_profiler SPDisplaysDataType 2>/dev/null)
+        return
+    fi
+}
+
+# Lit la liste des ecrans
+SCREENS=()
+while IFS= read -r s; do
+    [[ -n "$s" ]] && SCREENS+=("$s")
+done < <(detect_screens)
+
+if [[ ${#SCREENS[@]} -gt 1 ]]; then
+    # Multi-ecrans : une instance ffplay par moniteur, seul le 1er a le son
+    pids=()
+    i=0
+    for screen in "${SCREENS[@]}"; do
+        # shellcheck disable=SC2086
+        read -r sx sy sw sh <<< "$screen"
+        if (( i == 0 )); then
+            audio_arg=""
+        else
+            audio_arg="-an"
+        fi
+        ffplay -noborder -alwaysontop \
+               -left "$sx" -top "$sy" -x "$sw" -y "$sh" \
+               -autoexit -loglevel quiet $audio_arg \
+               "$VIDEO" </dev/null >/dev/null 2>&1 &
+        pids+=($!)
+        ((i++))
+    done
+    # Attend la fin de l'instance principale (1er ecran), puis tue les autres
+    wait "${pids[0]}" 2>/dev/null || true
+    for pid in "${pids[@]:1}"; do
+        kill "$pid" 2>/dev/null || true
+    done
+else
+    # 1 seul ecran detecte (ou detection echouee) : fullscreen classique
+    ffplay -fs -autoexit -loglevel quiet "$VIDEO" </dev/null >/dev/null 2>&1
+fi
