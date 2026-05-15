@@ -29,6 +29,14 @@ fetch "$RAW/lib/faah_hook_zsh.sh"      "$FAAH_DIR/lib/faah_hook_zsh.sh"
 fetch "$RAW/lib/faah_launcher_unix.sh" "$FAAH_DIR/lib/faah_launcher_unix.sh"
 chmod +x "$FAAH_DIR/lib/faah_launcher_unix.sh"
 
+# Si aucune video dans media/, telecharge la video par defaut
+shopt -s nullglob 2>/dev/null || true
+existing=("$FAAH_DIR/media/"*.mp4 "$FAAH_DIR/media/"*.mkv "$FAAH_DIR/media/"*.webm "$FAAH_DIR/media/"*.mov "$FAAH_DIR/media/"*.avi)
+if [[ ${#existing[@]} -eq 0 ]]; then
+    echo "[+] Aucune video presente -> telechargement de la video par defaut"
+    fetch "$RAW/media/default.mp4" "$FAAH_DIR/media/default.mp4" || true
+fi
+
 # Detecte le shell de connexion
 SHELL_NAME="$(basename "${SHELL:-/bin/bash}")"
 case "$SHELL_NAME" in

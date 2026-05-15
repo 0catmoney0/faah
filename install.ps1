@@ -20,6 +20,14 @@ function Fetch($url, $dst) {
 Fetch "$Raw/lib/faah_hook.ps1"         (Join-Path $LibDir 'faah_hook.ps1')
 Fetch "$Raw/lib/faah_launcher_win.ps1" (Join-Path $LibDir 'faah_launcher_win.ps1')
 
+# Si aucune video dans media/, telecharge la video par defaut
+$existing = Get-ChildItem -Path $MediaDir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -match '^\.(mp4|mkv|webm|mov|avi)$' }
+if (-not $existing) {
+    Write-Host "[+] Aucune video presente -> telechargement de la video par defaut"
+    try { Fetch "$Raw/media/default.mp4" (Join-Path $MediaDir 'default.mp4') } catch {}
+}
+
 # Ajoute le hook au profil PowerShell de l'utilisateur
 $ProfilePath = $PROFILE.CurrentUserAllHosts
 $ProfileDir  = Split-Path -Parent $ProfilePath

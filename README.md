@@ -58,6 +58,8 @@ sudo apt install playerctl
 
 ## 🎬 Comment ajouter / changer la vidéo
 
+L'installeur télécharge une **vidéo par défaut** (`default.mp4`) pour que ça marche tout de suite après installation. Tu peux la garder ou la remplacer.
+
 1. **Ouvre un nouveau terminal** après installation (sinon le hook n'est pas chargé).
 
 2. Tape `faah` — il te dira **où** poser ta vidéo, en fonction de ton OS :
