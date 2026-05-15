@@ -16,6 +16,32 @@ _faah_list_videos() {
     done | sort -u
 }
 
+_faah_format_size() {
+    local b=$1
+    if   (( b < 1024 ));        then print -n -- "$b B"
+    elif (( b < 1048576 ));     then print -n -- "$((b / 1024)) Ko"
+    elif (( b < 1073741824 )); then print -n -- "$((b / 1048576)) Mo"
+    else print -n -- "$((b / 1073741824)) Go"
+    fi
+}
+
+_faah_get_duration() {
+    command -v ffprobe >/dev/null 2>&1 || return
+    local d
+    d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$1" 2>/dev/null)
+    [[ -z "$d" ]] && return
+    local i=${d%.*}
+    if (( i < 60 )); then
+        print -n -- "${d:0:3}s"
+    else
+        printf '%dm%02ds' "$((i / 60))" "$((i % 60))"
+    fi
+}
+
+_faah_file_size() {
+    stat -c %s "$1" 2>/dev/null || stat -f %z "$1" 2>/dev/null
+}
+
 _faah_trigger() {
     local now last
     now=$(date +%s)
@@ -62,10 +88,18 @@ faah() {
     print "\nVideos disponibles :"
     local i=1
     for v in $videos; do
+        local full="$dir/$v"
+        local size dur info=""
+        size=$(_faah_format_size "$(_faah_file_size "$full")" 2>/dev/null)
+        dur=$(_faah_get_duration "$full")
+        if [[ -n "$dur" && -n "$size" ]];   then info=" ($dur, $size)"
+        elif [[ -n "$dur" ]];               then info=" ($dur)"
+        elif [[ -n "$size" ]];              then info=" ($size)"
+        fi
         if [[ "$v" == "$current" ]]; then
-            print "  $i) $v  (active)"
+            print "  $i) $v$info  (active)"
         else
-            print "  $i) $v"
+            print "  $i) $v$info"
         fi
         ((i++))
     done

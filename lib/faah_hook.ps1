@@ -25,6 +25,33 @@ function script:Get-FaahVideos {
         Sort-Object Name
 }
 
+function script:Format-FaahSize {
+    param([long]$bytes)
+    if     ($bytes -lt 1024)            { return "$bytes B" }
+    elseif ($bytes -lt 1048576)         { return ("{0} Ko" -f [math]::Round($bytes / 1024)) }
+    elseif ($bytes -lt 1073741824)     { return ("{0} Mo" -f [math]::Round($bytes / 1048576)) }
+    else                                { return ("{0:N1} Go" -f ($bytes / 1073741824)) }
+}
+
+function script:Get-FaahDuration {
+    param([string]$path)
+    try {
+        $shell  = New-Object -ComObject Shell.Application
+        $folder = $shell.Namespace((Split-Path $path -Parent))
+        $file   = $folder.ParseName((Split-Path $path -Leaf))
+        # Cherche dynamiquement la colonne 'Length' / 'Durée' / 'Longueur'
+        for ($i = 0; $i -lt 320; $i++) {
+            $colName = $folder.GetDetailsOf($null, $i)
+            if ($colName -eq 'Length' -or $colName -eq 'Durée' -or $colName -eq 'Longueur') {
+                $val = $folder.GetDetailsOf($file, $i)
+                if ($val -match '\d') { return $val.Trim() }
+                break
+            }
+        }
+    } catch {}
+    return ''
+}
+
 # Commande `faah` : interactif, affiche le dossier, liste les videos, permet de choisir la video active
 function global:faah {
     $dir        = $script:FaahMediaDir
@@ -52,10 +79,17 @@ function global:faah {
     Write-Host ""
     Write-Host "Videos disponibles :"
     for ($i = 0; $i -lt $videos.Count; $i++) {
-        if ($videos[$i].Name -eq $current) {
-            Write-Host ("  {0}) {1}  (active)" -f ($i + 1), $videos[$i].Name)
+        $v        = $videos[$i]
+        $size     = script:Format-FaahSize $v.Length
+        $duration = script:Get-FaahDuration $v.FullName
+        if ($duration -and $size) { $info = " ($duration, $size)" }
+        elseif ($duration)        { $info = " ($duration)" }
+        elseif ($size)            { $info = " ($size)" }
+        else                      { $info = "" }
+        if ($v.Name -eq $current) {
+            Write-Host ("  {0}) {1}{2}  (active)" -f ($i + 1), $v.Name, $info)
         } else {
-            Write-Host ("  {0}) {1}" -f ($i + 1), $videos[$i].Name)
+            Write-Host ("  {0}) {1}{2}" -f ($i + 1), $v.Name, $info)
         }
     }
 
