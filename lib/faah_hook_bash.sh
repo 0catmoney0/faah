@@ -10,9 +10,13 @@ _faah_list_videos() {
     local dir="$FAAH_DIR/media"
     [[ -d "$dir" ]] || return
     local f
-    for f in "$dir"/*.mp4 "$dir"/*.mkv "$dir"/*.webm "$dir"/*.mov "$dir"/*.avi "$dir"/*.MP4 "$dir"/*.MKV 2>/dev/null; do
+    local _saved
+    _saved=$(shopt -p nullglob 2>/dev/null || true)
+    shopt -s nullglob 2>/dev/null || true
+    for f in "$dir"/*.mp4 "$dir"/*.mkv "$dir"/*.webm "$dir"/*.mov "$dir"/*.avi "$dir"/*.MP4 "$dir"/*.MKV; do
         [[ -f "$f" ]] && printf '%s\n' "$(basename "$f")"
     done | sort -u
+    [[ -n "$_saved" ]] && eval "$_saved" 2>/dev/null || true
 }
 
 _faah_trigger() {
