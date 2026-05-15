@@ -125,9 +125,34 @@ L'uninstaller te demande si tu veux supprimer aussi le dossier `~/.faah/media/` 
 - Vérifie que le son est inclus **dans le fichier vidéo** (pas un fichier audio séparé).
 - Vérifie le volume Windows/macOS et le bon périphérique de sortie.
 
-**Le hook PowerShell ne se charge pas.**
-- Lance `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-- Vérifie que `$PROFILE.CurrentUserAllHosts` contient bien `. "C:\Users\...\.faah\lib\faah_hook.ps1"`.
+**Le hook PowerShell ne se charge pas (Windows).**
+
+Si tu vois cette erreur rouge en ouvrant PowerShell :
+
+```
+. : Impossible de charger le fichier C:\Users\TON_NOM\Documents\WindowsPowerShell\profile.ps1,
+car l'exécution de scripts est désactivée sur ce système.
+    + CategoryInfo          : Erreur de sécurité : (:) [], PSSecurityException
+    + FullyQualifiedErrorId : UnauthorizedAccess
+```
+
+Ça veut dire que l'ExecutionPolicy de Windows bloque le chargement du profil. C'est une protection Windows par défaut sur certains PC. Lance dans PowerShell :
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Tape `O` (Oui) à la question. Ferme et rouvre PowerShell → le profil se chargera et `faah` marchera.
+
+> `RemoteSigned` au scope `CurrentUser` est sûr : ça autorise tes scripts locaux (comme le hook FAAH) mais bloque toujours les scripts non signés téléchargés du net. C'est la config recommandée par Microsoft pour les utilisateurs avancés.
+
+À partir de la version 2026-05, l'installeur détecte ce problème et propose de le corriger automatiquement. Si tu utilises une vieille version, soit tu lances la commande manuellement, soit tu refais l'install (`iwr -useb tinyurl.com/faah-win | iex`).
+
+**Le hook n'est pas dans le bon profil.**
+- Vérifie que `$PROFILE.CurrentUserAllHosts` contient bien `. "C:\Users\...\.faah\lib\faah_hook.ps1"` :
+  ```powershell
+  Get-Content $PROFILE.CurrentUserAllHosts
+  ```
 
 ---
 
